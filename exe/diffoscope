@@ -1,0 +1,88 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "diffoscope"
+require "optparse"
+
+options = {}
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: diffoscope [options] INPUT1 INPUT2"
+  opts.separator ""
+  opts.separator "Compare files, URLs, or package URLs using diffoscope"
+  opts.separator ""
+  opts.separator "Inputs can be:"
+  opts.separator "  - Local file paths"
+  opts.separator "  - URLs (http:// or https://)"
+  opts.separator "  - Package URLs (pkg:gem/rails@7.0.0)"
+  opts.separator ""
+  opts.separator "Options:"
+
+  opts.on("--json", "Output raw JSON from diffoscope") do
+    options[:json] = true
+  end
+
+  opts.on("--check", "Check if diffoscope is installed") do
+    options[:check] = true
+  end
+
+  opts.on("--new-file", "Treat absent files as empty") do
+    options[:new_file] = true
+  end
+
+  opts.on("--max-diff-block-lines LINES", Integer, "Maximum number of lines per diff block") do |lines|
+    options[:max_diff_block_lines] = lines
+  end
+
+  opts.on("-h", "--help", "Show this help message") do
+    puts opts
+    exit
+  end
+
+  opts.on("-v", "--version", "Show version") do
+    puts "diffoscope #{Diffoscope::VERSION}"
+    exit
+  end
+end
+
+parser.parse!
+
+if options[:check]
+  if Diffoscope.installed?
+    puts "diffoscope is installed"
+    exit 0
+  else
+    puts "diffoscope is not installed. Install it with: pip install diffoscope"
+    exit 1
+  end
+end
+
+if ARGV.length != 2
+  puts parser
+  exit 1
+end
+
+input1, input2 = ARGV
+
+begin
+  result = Diffoscope.compare(input1, input2, **options.slice(:new_file, :max_diff_block_lines))
+
+  if options[:json]
+    puts JSON.pretty_generate(result.to_h)
+  elsif result.identical?
+    puts "Files are identical"
+  else
+    puts result.to_unified_diff
+  end
+rescue Diffoscope::NotInstalledError => e
+  warn "Error: #{e.message}"
+  exit 1
+rescue Diffoscope::DownloadError => e
+  warn "Download error: #{e.message}"
+  exit 1
+rescue Diffoscope::ResolverError => e
+  warn "Resolver error: #{e.message}"
+  exit 1
+rescue Diffoscope::ExecutionError => e
+  warn "Execution error: #{e.message}"
+  exit 1
+end
