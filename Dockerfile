@@ -1,9 +1,16 @@
-FROM ruby:3.4
+FROM ruby:3.4-alpine
 
-RUN apt-get update && apt-get install -y \
-    python3-pip \
-    diffoscope \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    build-base \
+    git \
+    yaml-dev \
+    zlib-dev \
+    python3 \
+    py3-pip \
+    openjdk17-jre-headless \
+    diffoscope
+
+RUN pip3 install --no-cache-dir --break-system-packages jsbeautifier tlsh
 
 WORKDIR /app
 
